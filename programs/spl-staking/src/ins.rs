@@ -296,6 +296,9 @@ pub struct Claim<'info> {
     #[account(mut)]
     pub vault: AccountLoader<'info, Vault>,
 
+    #[account(mut)]
+    pub extra_vault: AccountLoader<'info, ExtraVault>,
+
     #[account(
         seeds = [
             b"vault".as_ref(),
@@ -342,4 +345,13 @@ pub struct ClosePda<'info> {
     pub pda: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeExtraVault<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(zero)]
+    pub extra_vault: AccountLoader<'info, ExtraVault>
 }

@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
+use std::cell::RefMut;
 
 pub const MAX_STAKERS: usize = 2000;
 
@@ -54,17 +55,18 @@ impl Vault {
         let rate: f64 = self.daily_payout_amount as f64 * staked_seconds as f64 / 86400f64 / self.total_staked_amount as f64;
 
         for i in 0..self.total_user_count as usize {
-            let earned_amount: f64 = rate * self.users[i].staked_amount as f64;
-            self.users[i].earned_amount = self.users[i]
-                .earned_amount
-                .checked_add(earned_amount as u64)
-                .unwrap();
+            if self.users[i].staked_amount > 0 {
+                let earned_amount: u64 = (rate * self.users[i].staked_amount as f64) as u64;
+                if earned_amount > 0 {
+                    self.users[i].earned_amount = self.users[i].earned_amount + earned_amount;
+                }
+            }
         }
         self.last_updated_time = now;
     }
 
     pub fn stake(&mut self, key: Pubkey, amount: u64) {
-        self.update();
+        // self.update();
 
         for i in 0..self.total_user_count as usize {
             if self.users[i].key == key {
@@ -97,7 +99,7 @@ impl Vault {
         }
     }
 
-    pub fn claim(&mut self, key: Pubkey) -> u64 {
+    pub fn claim(&mut self, key: Pubkey, extra_vault: &mut RefMut<ExtraVault>) -> u64 {
         self.update();
 
         for i in 0..self.total_user_count as usize {
@@ -106,6 +108,7 @@ impl Vault {
                 self.users[i].earned_amount = 0;
                 self.reward_pool_amount =
                     self.reward_pool_amount.checked_sub(earned_amount).unwrap();
+                extra_vault.claimed_amount_per_user[i] = extra_vault.claimed_amount_per_user[i].checked_add(earned_amount).unwrap();
                 return earned_amount;
             }
         }
@@ -127,6 +130,23 @@ impl Default for User {
             key: Pubkey::default(),
             staked_amount: 0,
             earned_amount: 0,
+        }
+    }
+}
+
+#[account(zero_copy)]
+pub struct ExtraVault {
+    pub claimed_amount_per_user: [u64; MAX_STAKERS],
+}
+
+impl ExtraVault {
+    pub const LEN: usize = std::mem::size_of::<ExtraVault>();
+}
+
+impl Default for ExtraVault {
+    fn default() -> ExtraVault {
+        ExtraVault {
+            claimed_amount_per_user: [0; MAX_STAKERS],
         }
     }
 }

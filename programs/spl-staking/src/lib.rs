@@ -183,11 +183,12 @@ pub mod spl_staking {
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         let mut vault = ctx.accounts.vault.load_mut()?;
+        let extra_vault = &mut ctx.accounts.extra_vault.load_mut()?;
         let bump = vault.bump;
         let vault_bump = bump;
         let vault_key = ctx.accounts.vault.key();
 
-        let amount = vault.claim(ctx.accounts.staker.key());
+        let amount = vault.claim(ctx.accounts.staker.key(), extra_vault);
 
         let seeds = [
             b"vault".as_ref(), 
@@ -220,6 +221,12 @@ pub mod spl_staking {
             .unwrap();
         **source_account_info.lamports.borrow_mut() = 0;
 
+        Ok(())
+    }
+
+    pub fn initialize_extra_vault(ctx: Context<InitializeExtraVault>) -> Result<()> {
+        ctx.accounts.extra_vault.load_init()?;
+        
         Ok(())
     }
 }
